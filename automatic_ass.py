@@ -1,7 +1,6 @@
 import oracledb
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
-from fpdf import FPDF
 import os
 import glob
 import sys
@@ -220,8 +219,10 @@ def execute_sql_safely(conn, sql):
     except Exception as e:
         return f"ERROR at line 1:\n{e}"
 
-def generate_assignment_pdf(output_filename="DBMS_Assignment.pdf"):
-    print("--- Starting Assignment Auto-Solver ---")
+# ... (Keep everything above execute_sql_safely as it is) ...
+
+def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
+    print("--- Starting Assignment Auto-Solver (Markdown Mode) ---")
     
     # 1. Connect to DB
     try:
@@ -230,82 +231,65 @@ def generate_assignment_pdf(output_filename="DBMS_Assignment.pdf"):
         print("Fatal Error: Could not connect to database.")
         return
 
-    # 2. Setup PDF
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page() # Start with one page
+    # 2. Setup Directories
+    # Create a folder for images so they don't clutter your root folder
+    img_dir = "assignment_images"
+    if not os.path.exists(img_dir):
+        os.makedirs(img_dir)
+
+    # 3. Start Markdown Content
+    # We use standard Markdown for the top metadata
+    md_content = """
+# DBMS Assignment Submission
+**Name:** Your Name
+**Roll No:** Your Roll No
+---
+"""
     
-    # Combine lists: Setup first, then Assignments
-    # We label them to help the user identify in logs
+    # Combine Setup and Assignment tasks
     all_tasks = SETUP_QUERIES + ASSIGNMENTS 
     
-    # 3. Process Queries
-    print(f"\nProcessing {len(all_tasks)} queries (Setup + Assignments)...")
+    print(f"\nProcessing {len(all_tasks)} queries...")
     
     for i, item in enumerate(all_tasks):
         print(f"  > Processing Query {i+1}...")
         
         # A. Execute SQL
         result_str = execute_sql_safely(conn, item['sql'])
-        
-        # B. Create Image
-        img_name = f"temp_q{i}.png"
-        create_terminal_screenshot(item['sql'], result_str, img_name)
-        
-        # C. Add to PDF (Continuous Flow)
-        
-        # Get Image Dimensions to calculate space needed
-        with Image.open(img_name) as im:
-            px_w, px_h = im.size
-            
-        # FPDF default DPI is often 72 or user defined units. 
-        # When using pdf.image(w=190), we effectively force width to 190mm.
-        # We need to calculate the proportional height in mm.
-        aspect_ratio = px_h / px_w
-        display_w = 190
-        display_h = display_w * aspect_ratio
-        
-        # Estimate vertical space needed (Header + Image + Spacing)
-        needed_h = 15 + display_h + 10 # 15 for text, 10 buffer
-        
-        # Check if we need a page break
-        current_y = pdf.get_y()
-        page_h = 297 # A4 Height
-        margin = 20 # Bottom margin safety
-        
-        if current_y + needed_h > (page_h - margin):
-            pdf.add_page()
-            
-        # Title (Question)
-        pdf.set_font("Arial", 'B', 11)
-        # Use simple numbering or prompt text
-        q_text = item.get('q', f'Task {i+1}')
-        pdf.multi_cell(0, 8, q_text)
-        
-        # Image (Screenshot)
-        # pdf.image automatically puts it at current Y if x/y not specified? 
-        # Actually safer to provide exact coords or rely on ln.
-        # FPDF 1.7.2 .image() places at current position if x=None/y=None, 
-        # but usage in original code was specific. 
-        # We will use flow logic.
-        
-        pdf.image(img_name, x=10, w=display_w)
-        
-        # Move cursor down manually because image() might not update flow cursor fully
-        # depending on FPDF version/settings.
-        pdf.ln(display_h + 5) 
-        
-        # Cleanup temp file
-        if os.path.exists(img_name):
-            try:
-                os.remove(img_name)
-            except: 
-                pass
 
-    # 4. Finish
+        # B. Create Image
+        # Save explicitly into the folder
+        img_filename = os.path.join(img_dir, f"q{i}.png")
+        create_terminal_screenshot(item['sql'], result_str, img_filename)
+        
+        # To be flexible to markdown's web-url slashes
+        # Convert Windows backslashes (\) to Web forward slashes (/)
+        img_web_path = img_filename.replace("\\", "/")
+        
+        # C. Write to Markdown using HTML-Hybrid Syntax
+        # This <div> prevents page breaks between Question and Image.
+        # We use <h3> and <img> because standard Markdown (###, ![]) won't render inside a div.
+        
+        q_text = item.get('q', f'Task {i+1}')
+        
+        block = f"""
+<div style="page-break-inside: avoid; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+    <h4>{q_text}</h4>
+    <img src="{img_web_path}" alt="Output for {q_text}" style="border: 1px solid #333; max-width: 100%; box-shadow: 3px 3px 5px rgba(0,0,0,0.2);">
+</div>
+<br>
+"""
+        md_content += block
+
+    # 4. Save Markdown File
+    with open(output_filename, "w", encoding="utf-8") as f:
+        f.write(md_content)
+
     conn.close()
-    pdf.output(output_filename)
-    print(f"\nSuccess! PDF generated: {output_filename}")
+    print(f"\nSuccess! Generated '{output_filename}'")
+    print(f"Images saved in: {os.path.abspath(img_dir)}")
+    print("Open the .md file in Obsidian/VS Code and export to PDF.")
 
 if __name__ == "__main__":
-    generate_assignment_pdf()
+    # We call the new Markdown function instead of the PDF one
+    generate_assignment_markdown()

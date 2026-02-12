@@ -268,8 +268,8 @@ def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
     # 3. Start Markdown Content
     # We use standard Markdown for the top metadata
     md_content = f"""
-# Database Mananagement Systems - BCSE302P
-**Name:** {USER_CONFIG["regno"]}
+# Database Management Systems - BCSE302P
+**Name:** {USER_CONFIG["name"]}
 **Reg. No. :** {USER_CONFIG['regno']}
 **Slot :** {USER_CONFIG['slot']}
 **Faculty :** {USER_CONFIG['faculty']}

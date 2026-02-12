@@ -5,6 +5,10 @@ import os
 import glob
 import sys
 import platform
+import warnings
+
+# Suppress pandas UserWarning about raw DB connections
+warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy connectable.*')
 
 # ==========================================
 #              CONFIGURATION
@@ -270,7 +274,8 @@ def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
 **Slot :** {USER_CONFIG['slot']}
 **Faculty :** {USER_CONFIG['faculty']}
 
-**Lab {USER_CONFIG["labNo"]} - {USER_CONFIG['labTitle']}**
+***Lab {USER_CONFIG["labNo"]} - {USER_CONFIG['labTitle']}***
+
 ---
 """
     

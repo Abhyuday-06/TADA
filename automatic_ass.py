@@ -17,6 +17,15 @@ DB_CONFIG = {
     "port": 1521
 }
 
+USER_CONFIG = {
+    "regno" : "YYBBBXXXX",
+    "name" : "Superman",
+    "labNo" : "0",
+    "labTitle" : "Practice Exercise",
+    "faculty" : "facc",
+    "slot" : "L00-L00"
+}
+
 # List your queries here. 
 # (Later, you can replace this list with the output from your AI agent)
 ASSIGNMENTS = [
@@ -189,6 +198,21 @@ def create_terminal_screenshot(query, result_text, filename):
 # ==========================================
 #        PART 3: MAIN EXECUTION
 # ==========================================
+
+def set_user_config():
+    print("-----Enter your document details-----")
+    print("*** Enter 0 to use default values ***")
+    regno = input("Registration No. : ")
+    if regno == "0":
+        return
+    
+    USER_CONFIG["regno"] = regno
+    USER_CONFIG["name"] = input("Name : ")
+    USER_CONFIG["faculty"] = input("Faculty Name : ")
+    USER_CONFIG["slot"] = input("Slot : ")
+    USER_CONFIG["labNo"] = input("Lab No. : ")
+    USER_CONFIG["labTitle"] = input("Lab Title : ")
+
 def execute_sql_safely(conn, sql):
     """
     Handles both SELECT (returning a DataFrame string)
@@ -239,10 +263,14 @@ def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
 
     # 3. Start Markdown Content
     # We use standard Markdown for the top metadata
-    md_content = """
-# DBMS Assignment Submission
-**Name:** Your Name
-**Roll No:** Your Roll No
+    md_content = f"""
+# Database Mananagement Systems - BCSE302P
+**Name:** {USER_CONFIG["regno"]}
+**Reg. No. :** {USER_CONFIG['regno']}
+**Slot :** {USER_CONFIG['slot']}
+**Faculty :** {USER_CONFIG['faculty']}
+
+**Lab {USER_CONFIG["labNo"]} - {USER_CONFIG['labTitle']}**
 ---
 """
     
@@ -273,11 +301,10 @@ def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
         q_text = item.get('q', f'Task {i+1}')
         
         block = f"""
-<div style="page-break-inside: avoid; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
-    <h4>{q_text}</h4>
-    <img src="{img_web_path}" alt="Output for {q_text}" style="border: 1px solid #333; max-width: 100%; box-shadow: 3px 3px 5px rgba(0,0,0,0.2);">
+<div style="page-break-inside: avoid; margin-bottom: 30px; padding-bottom: 10px;">
+    <h6>{q_text}</h6>
+    <img src="{img_web_path}" alt="Output for {q_text}" style="border: 1px solid #333; max-width: 100%;">
 </div>
-<br>
 """
         md_content += block
 
@@ -292,4 +319,5 @@ def generate_assignment_markdown(output_filename="DBMS_Assignment.md"):
 
 if __name__ == "__main__":
     # We call the new Markdown function instead of the PDF one
+    set_user_config()
     generate_assignment_markdown()

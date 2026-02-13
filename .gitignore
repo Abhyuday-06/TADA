@@ -44,7 +44,6 @@ Thumbs.db
 
 # PDF files
 *.pdf
-*.md
 
 # Environment variables
 .env

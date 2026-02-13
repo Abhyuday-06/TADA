@@ -6,6 +6,7 @@ import glob
 import sys
 import platform
 import warnings
+import json
 
 # Suppress pandas UserWarning about raw DB connections
 warnings.filterwarnings('ignore', message='.*pandas only supports SQLAlchemy connectable.*')
@@ -30,43 +31,19 @@ USER_CONFIG = {
     "slot" : "L00-L00"
 }
 
-# List your queries here. 
-# (Later, you can replace this list with the output from your AI agent)
-ASSIGNMENTS = [
-    {
-        "q": "1. Retrieve details of all employees in Department 10.",
-        "sql": "SELECT * FROM EMP WHERE DEPTNO = 10"
-    },
-    {
-        "q": "2. List the name and salary of employees who are CLERKS.",
-        "sql": "SELECT ENAME, SAL FROM EMP WHERE JOB = 'CLERK'"
-    },
-    {
-        "q": "3. Find the department with the highest average salary.",
-        "sql": "SELECT DEPTNO, AVG(SAL) FROM EMP GROUP BY DEPTNO ORDER BY AVG(SAL) DESC FETCH FIRST 1 ROWS ONLY"
-    }
-]
+def load_queries_from_json(filename="queries.json"):
+    try:
+        with open(filename, "r") as f:
+            data = json.load(f)
+            return data.get("assignments", []), data.get("setup_queries", [])
+    except FileNotFoundError:
+        print(f"Error: {filename} not found.")
+        return [], []
+    except json.JSONDecodeError:
+        print(f"Error: Failed to decode JSON from {filename}.")
+        return [], []
 
-# Create tables or insert data here (will run before assignments)
-SETUP_QUERIES = [
-    {
-        "q": "Setup: Create EMP Table",
-        "sql": """CREATE TABLE EMP (
-    EMPNO NUMBER(4) NOT NULL,
-    ENAME VARCHAR2(10),
-    JOB VARCHAR2(9),
-    MGR NUMBER(4),
-    HIREDATE DATE,
-    SAL NUMBER(7, 2),
-    COMM NUMBER(7, 2),
-    DEPTNO NUMBER(2)
-)"""
-    },
-    {
-        "q": "Setup: Insert sample data",
-        "sql": "INSERT INTO EMP VALUES (7369, 'SMITH', 'CLERK', 7902, TO_DATE('17-DEC-1980', 'DD-MON-YYYY'), 800, NULL, 20)"
-    }
-]
+ASSIGNMENTS, SETUP_QUERIES = load_queries_from_json()
 
 # ==========================================
 #        PART 1: SMART CONNECTION

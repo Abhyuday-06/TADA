@@ -218,34 +218,73 @@ def set_user_config():
     USER_CONFIG["labTitle"] = input("Lab Title : ")
 
 def execute_sql_safely(conn, sql):
-    """
-    Handles both SELECT (returning a DataFrame string)
-    and DDL/DML (returning a status message).
-    """
     clean_sql = sql.strip().upper()
+    
+    # 1. Enable DBMS_OUTPUT (Standard PL/SQL printing)
+    # This tells the server "buffer any print messages, I will ask for them later"
+    cursor = conn.cursor()
+    cursor.callproc("dbms_output.enable")
+    
+    result_text = ""
+    
     try:
-        # 1. SELECT queries -> Use Pandas for pretty table
+        # A. SELECT / WITH -> Use Pandas
         if clean_sql.startswith("SELECT") or clean_sql.startswith("WITH"):
             df = pd.read_sql(sql, conn)
             if df.empty:
-                return "no rows selected"
-            return df.to_string(index=False)
+                result_text = "no rows selected"
+            else:
+                result_text = df.to_string(index=False)
         
-        # 2. DDL / DML -> Use Cursor
+        # B. DDL / DML -> Execute and Check Row Counts
         else:
-            with conn.cursor() as cursor:
-                cursor.execute(sql)
-                # Mimic SQL*Plus feedback
-                if clean_sql.startswith("CREATE"): return "Table created."
-                if clean_sql.startswith("DROP"): return "Table dropped."
-                if clean_sql.startswith("ALTER"): return "Table altered."
-                if clean_sql.startswith("INSERT"): return "1 row created."
-                if clean_sql.startswith("UPDATE"): return f"{cursor.rowcount} rows updated."
-                if clean_sql.startswith("DELETE"): return f"{cursor.rowcount} rows deleted."
-                return "Command executed successfully."
-                
+            cursor.execute(sql)
+            
+            # Check for standard SQL*Plus-style feedback
+            if clean_sql.startswith("CREATE"): 
+                result_text = "Table created." # Server doesn't send this, we must mimic.
+            elif clean_sql.startswith("DROP"): 
+                result_text = "Table dropped."
+            elif clean_sql.startswith("ALTER"): 
+                result_text = "Table altered."
+            elif clean_sql.startswith("PL/SQL") or clean_sql.startswith("BEGIN") or clean_sql.startswith("DECLARE"):
+                result_text = "PL/SQL procedure successfully completed."
+            
+            # For DML (Insert/Update/Delete), use the REAL row count from the server
+            elif clean_sql.startswith("INSERT"): 
+                result_text = f"{cursor.rowcount} row(s) created."
+            elif clean_sql.startswith("UPDATE"): 
+                result_text = f"{cursor.rowcount} row(s) updated."
+            elif clean_sql.startswith("DELETE"): 
+                result_text = f"{cursor.rowcount} row(s) deleted."
+            else:
+                result_text = "Command executed successfully."
+
+        # C. FETCH DBMS_OUTPUT (The "Real" Server Output)
+        # If your PL/SQL block used dbms_output.put_line, we grab it here.
+        chunk_size = 100
+        lines_var = cursor.arrayvar(str, chunk_size)
+        num_lines_var = cursor.var(int)
+        num_lines_var.setvalue(0, chunk_size)
+        
+        while True:
+            cursor.callproc("dbms_output.get_lines", (lines_var, num_lines_var))
+            num_lines = num_lines_var.getvalue()
+            if num_lines > 0:
+                # Add the server's print output to our result
+                fetched_lines = lines_var.getvalue()[:num_lines]
+                extra_output = "\n".join([line for line in fetched_lines if line])
+                if extra_output:
+                    result_text += f"\n\n{extra_output}"
+            else:
+                break
+
+        return result_text.strip()
+
     except Exception as e:
         return f"ERROR at line 1:\n{e}"
+    finally:
+        cursor.close()
 
 # ... (Keep everything above execute_sql_safely as it is) ...
 

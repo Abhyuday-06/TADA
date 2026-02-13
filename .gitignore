@@ -55,3 +55,8 @@ Thumbs.db
 
 # generated images
 assignment_images/
+
+# test output
+test_output/
+
+
